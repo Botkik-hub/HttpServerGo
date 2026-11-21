@@ -1,25 +1,29 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
+	"os"
 	"sync/atomic"
+
+	"github.com/botkik-hub/httpServerGo/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
-type apiConfig struct {
-	fileserverHits atomic.Int32
-}
-
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits.Add(1)
-		next.ServeHTTP(w, r)
-	})
-}
-
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		fmt.Print("Server cannot connect to the database, cannot run the server.")
+		return
+	}
+	dbQueries := database.New(db)
 	cfg := apiConfig{
 		fileserverHits: atomic.Int32{},
+		dbQueries:      dbQueries,
 	}
 	serveMux := http.ServeMux{}
 	server := http.Server{
@@ -27,36 +31,10 @@ func main() {
 		Addr:    ":8080",
 	}
 	serveMux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
-	serveMux.HandleFunc("GET /healthz", readinessCheck)
-	serveMux.HandleFunc("GET /metrics", cfg.metricsCheck)
-	serveMux.HandleFunc("POST /reset", cfg.clearMetrics)
+	serveMux.HandleFunc("GET /api/healthz", cfg.readinessCheck)
+	serveMux.HandleFunc("GET /admin/metrics", cfg.metricsCheck)
+	serveMux.HandleFunc("POST /admin/reset", cfg.clearMetrics)
+	serveMux.HandleFunc("POST /api/users", cfg.createUser)
+	serveMux.HandleFunc("POST /api/chirps", cfg.createChirp)
 	server.ListenAndServe()
-}
-
-func readinessCheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain")
-	w.Header().Add("charset", "utf-8")
-	w.WriteHeader(200)
-	w.Write([]byte("OK"))
-}
-
-func (cfg *apiConfig) metricsCheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/html")
-	w.Header().Add("charset", "utf-8")
-	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf(
-		`
-<html>
-	<body>
-		<h1>Hits: %v</h1>
-	</body>
-</html>
-	`, cfg.fileserverHits.Load())))
-}
-
-func (cfg *apiConfig) clearMetrics(w http.ResponseWriter, r *http.Request) {
-	cfg.fileserverHits.Store(0)
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write([]byte("OK"))
 }
