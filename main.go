@@ -36,5 +36,6 @@ func main() {
 	serveMux.HandleFunc("POST /admin/reset", cfg.clearMetrics)
 	serveMux.HandleFunc("POST /api/users", cfg.createUser)
 	serveMux.HandleFunc("POST /api/chirps", cfg.createChirp)
+	serveMux.HandleFunc("GET /api/chirps", cfg.GetAllChirp)
 	server.ListenAndServe()
 }
