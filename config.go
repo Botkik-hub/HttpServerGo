@@ -139,8 +139,6 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) GetAllChirp(w http.ResponseWriter, r *http.Request) {
-	type params struct {
-	}
 	type respOk struct {
 		Id        uuid.UUID `json:"id"`
 		CreatedAt time.Time `json:"created_at"`
@@ -148,16 +146,11 @@ func (cfg *apiConfig) GetAllChirp(w http.ResponseWriter, r *http.Request) {
 		Body      string    `json:"body"`
 		UserId    uuid.UUID `json:"user_id"`
 	}
-	// decoder := json.NewDecoder(r.Body)
-	// got := params{}
-	// if err := decoder.Decode(&got); err != nil {
-	// 	respondWithError(w, 400, fmt.Sprintf("Cannot decrypt request body: %s", err))
-	// 	return
-	// }
+
 	chirps, err := cfg.dbQueries.FetchAll(r.Context())
 
 	if err != nil {
-		respondWithError(w, 400, fmt.Sprintf("Cannot inser chirp: %s", err))
+		respondWithError(w, 400, fmt.Sprintf("Cannot fetch chirps: %s", err))
 		return
 	}
 	resp := []respOk{}
@@ -169,6 +162,36 @@ func (cfg *apiConfig) GetAllChirp(w http.ResponseWriter, r *http.Request) {
 			Body:      chirp.Body,
 			UserId:    chirp.UserID,
 		})
+	}
+	respondWithJSON(w, 200, resp)
+}
+
+func (cfg *apiConfig) GetChirpById(w http.ResponseWriter, r *http.Request) {
+	type respOk struct {
+		Id        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		Updated   time.Time `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserId    uuid.UUID `json:"user_id"`
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		respondWithError(w, 400, fmt.Sprintf("Cannot parse an id: $s", err))
+		return
+	}
+
+	chirp, err := cfg.dbQueries.FetchById(r.Context(), id)
+
+	if err != nil {
+		respondWithError(w, 404, fmt.Sprintf("Cannot getch chirp: %s", err))
+		return
+	}
+	resp := respOk{
+		Id:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		Updated:   chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserId:    chirp.UserID,
 	}
 	respondWithJSON(w, 200, resp)
 }

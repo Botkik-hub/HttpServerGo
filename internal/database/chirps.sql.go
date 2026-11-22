@@ -85,3 +85,21 @@ func (q *Queries) FetchAll(ctx context.Context) ([]Chirp, error) {
 	}
 	return items, nil
 }
+
+const fetchById = `-- name: FetchById :one
+SELECT id, created_at, updated_at, body, user_id FROM chirps
+WHERE id = $1
+`
+
+func (q *Queries) FetchById(ctx context.Context, id uuid.UUID) (Chirp, error) {
+	row := q.db.QueryRowContext(ctx, fetchById, id)
+	var i Chirp
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Body,
+		&i.UserID,
+	)
+	return i, err
+}

@@ -14,6 +14,11 @@ SELECT * FROM chirps
 WHERE 1 = 1
 ORDER BY created_at;
 
+-- name: FetchById :one
+SELECT * FROM chirps
+WHERE id = $1;
+
+
 -- name: DeleteAllChirps :exec
 DELETE FROM chirps
 WHERE 1 = 1;
